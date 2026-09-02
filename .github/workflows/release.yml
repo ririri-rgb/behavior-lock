@@ -116,13 +116,10 @@ jobs:
       - name: Self-dogfood release build
         run: node dist/cli.js verify
 
-      # Initial v0.2.0 publication requires an npm automation/granular token because
-      # the package does not yet exist and therefore cannot have a trusted publisher
-      # configured in advance. After the first publish, configure npm trusted
-      # publishing for this workflow and remove the NPM_TOKEN secret.
+      # Authentication is provided by npm Trusted Publishing through GitHub Actions OIDC.
+      # The workflow keeps id-token: write and publishes only the exact tarball tested above.
       - name: Publish exact tested tarball to npm
         shell: bash
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
           TARBALL: ${{ steps.pack.outputs.tarball }}
         run: npm publish "./$TARBALL" --access public --provenance
