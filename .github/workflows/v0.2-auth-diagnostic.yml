@@ -39,4 +39,4 @@ jobs:
           fi
           echo "TOKEN_AVAILABLE=true"
 
-# rerun after NPM_TOKEN was updated
+# post-publish-denial verification
