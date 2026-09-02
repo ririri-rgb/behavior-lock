@@ -2,7 +2,7 @@
 
 **Lock your software's behavior before AI touches the code.**
 
-Behavior Lock captures observable repository behavior before a risky change, then tells you exactly what drifted afterward. It is a repository-level workflow for characterization/golden-master style regression checks; it does **not** claim to invent snapshot, golden master, characterization, or regression testing.
+Behavior Lock captures observable repository behavior before a risky change, then tells you what drifted afterward. It packages characterization/golden-master style regression checking into a repository-level CLI workflow; it does **not** claim to invent snapshot, golden master, characterization, or regression testing.
 
 ```bash
 npx behavior-lock record --name cli-help -- my-cli --help
@@ -12,22 +12,22 @@ npx behavior-lock record --name cli-help -- my-cli --help
 npx behavior-lock verify
 ```
 
-That first command records the behavior **and** registers it in `behavior-lock.json`. No config file is required to try the tool.
+The first command captures the behavior **and** registers it in `behavior-lock.json`. No config file is required to try the tool.
 
-## 5-minute start
+## Try it
 
 Requires Node.js 22+.
 
-### Option A: lock one command immediately
+Lock one real command immediately:
 
 ```bash
 npx behavior-lock record --name cli-help -- node dist/cli.js --help
 npx behavior-lock verify
 ```
 
-A changed command exits with code `1`; configuration or execution errors exit with code `2`.
+A changed behavior exits with code `1`; configuration or execution errors exit with code `2`.
 
-### Option B: initialize an existing repository
+Or initialize an existing repository:
 
 ```bash
 npx behavior-lock init
@@ -35,13 +35,33 @@ npx behavior-lock init
 
 `init` recognizes common repository metadata (`package.json`, `pyproject.toml`, `Cargo.toml`, `go.mod`, `Makefile`) and creates a safe empty `behavior-lock.json` when one does not already exist. It never overwrites an existing config.
 
-For a detected runnable Node CLI entry, `init` may print conventional `--help` / `--version` **capture suggestions**, but it does not register or execute them automatically. Review a suggestion, then run it explicitly, for example:
+For a detected runnable Node CLI entry, `init` may print conventional `--help` / `--version` **capture suggestions**, but it does not register or execute them automatically. Review a suggestion, then run it explicitly.
+
+## Add it to your project
+
+For ongoing use, install Behavior Lock as a development dependency rather than relying on an unpinned remote package resolution:
 
 ```bash
-npx behavior-lock record --name my-cli-help -- node dist/cli.js --help
+npm install --save-dev behavior-lock
 ```
 
-This avoids pretending that every CLI implements conventional flags.
+Commit your package manifest and lockfile. Then record the behaviors you want to protect:
+
+```bash
+npx behavior-lock record --name cli-help -- node dist/cli.js --help
+```
+
+Commit both `behavior-lock.json` and `.behavior-lock/baseline.json` after reviewing them.
+
+For CI, install from the committed lockfile first, then use the project-local Behavior Lock version:
+
+```yaml
+- run: npm ci
+- name: Verify behavior
+  run: npx behavior-lock verify
+```
+
+`npx` uses the locally installed dependency here, so the lockfile—not whatever version happens to be newest—controls the Behavior Lock version used by CI.
 
 ## What gets locked?
 
@@ -86,7 +106,7 @@ Use `json-command` when stdout is JSON:
 }
 ```
 
-Behavior Lock parses the JSON and reports path-level changes instead of treating the entire document as a text blob:
+Behavior Lock parses the JSON and reports path-level changes instead of treating the whole document as a text blob:
 
 ```text
 ✗ users
@@ -137,15 +157,14 @@ git diff
 commit
 ```
 
-`record --name ... -- ...` only updates the named behavior in an existing baseline, so trying the zero-config flow does not implicitly accept unrelated changes.
+`record --name ... -- ...` only updates the named behavior in an existing baseline, so the zero-config flow does not implicitly accept unrelated changes.
 
-## CI
+## CI and integrations
 
-The normal integration is one line after your project is built:
+For human-readable CI output:
 
-```yaml
-- name: Verify behavior
-  run: npx behavior-lock verify
+```bash
+npx behavior-lock verify
 ```
 
 For bots and other tooling:
@@ -154,7 +173,7 @@ For bots and other tooling:
 npx behavior-lock verify --json
 ```
 
-Example result:
+Example machine-readable result:
 
 ```json
 {
@@ -167,41 +186,74 @@ Example result:
 
 No GitHub token is required for core verification.
 
+## Real-world dogfooding: repo-to-codex
+
+Behavior Lock is used in [`ririri-rgb/repo-to-codex`](https://github.com/ririri-rgb/repo-to-codex) to protect real CLI contracts during refactoring.
+
+The committed baseline protects:
+
+- complete `--help` output and exit behavior
+- unknown-option stderr and exit code
+- deterministic preview output for repo-to-codex's existing Next.js fixture
+
+In [repo-to-codex PR #1](https://github.com/ririri-rgb/repo-to-codex/pull/1), CLI option parsing and help rendering were extracted from `src/cli/index.ts` into `src/cli/options.ts`. The normal lint/typecheck/test/build/package checks passed, and Behavior Lock also passed with all three behaviors unchanged.
+
+A separate [closed regression experiment, PR #2](https://github.com/ririri-rgb/repo-to-codex/pull/2), reproduced a realistic follow-up mistake: `--force` was still accepted by the parser but its line disappeared from user-facing help. The existing lint, typecheck, tests, build, and package checks all still passed. Behavior Lock failed and reported:
+
+```text
+✗ cli-help
+
+stdout changed:
+
+-   --force    Allow overwriting generated target files
+```
+
+No existing tests were disabled or weakened for this experiment. The regression exposed a natural gap between internal test coverage and the external CLI contract.
+
 ## Why not just use snapshot tests?
 
-Snapshot tests are useful, and Behavior Lock is built on the same broad family of regression ideas. The difference is workflow and scope:
+Snapshot tests are useful, and Behavior Lock belongs to the same broad family of regression techniques. The difference is workflow and scope:
 
 | Snapshot test suites | Behavior Lock |
 | --- | --- |
 | Usually tied to a test framework | Standalone repository-level CLI |
 | Commonly compare values inside a test process | Captures external process behavior |
-| Framework/language specific setup | Runs any executable command |
-| Best when you already have tests | Useful when characterizing legacy or migration behavior before changing internals |
+| Framework/language-specific setup | Runs any executable command |
+| Best when the behavior already fits naturally inside tests | Useful for characterizing an executable before risky internal changes |
 | Snapshot update flow is framework-specific | Explicit `record → review → git diff → commit` workflow |
 
-Behavior Lock is especially useful when the risky change spans many files or technologies and the most important contract is what a user or another process can observe from the outside.
+Behavior Lock is not a replacement for good tests. It adds an external behavior boundary that can be useful when existing tests do not completely describe what users or other processes observe.
+
+## Best fit today
+
+The strongest v0.2 use cases are:
+
+1. **CLI maintainers** protecting help text, exit codes, stderr/stdout, JSON output, and deterministic command output.
+2. **Maintainers doing risky refactors, migrations, or legacy modernization** who want to characterize an executable before changing its internals.
+
+AI-assisted refactoring increases the value of this workflow because large changes can happen quickly, but AI is not required for Behavior Lock to be useful.
 
 ## Use cases
 
 ### CLI refactor
 
-Lock `--help`, `--version`, exit codes, stderr, and JSON output before reorganizing the implementation.
-
-### Framework migration
-
-Capture stable commands or API-client fixtures around an Express → Fastify migration while internal architecture changes substantially.
+Lock `--help`, `--version`, exit codes, stderr, and JSON output before reorganizing argument parsing, command routing, or internal modules.
 
 ### Legacy modernization
 
-Characterize a poorly tested executable first, then rewrite internals with an external regression boundary.
+Characterize a poorly tested executable first, then rewrite internals behind an external regression boundary.
+
+### Framework migration
+
+Capture stable commands or client-visible fixtures while internal architecture changes substantially.
+
+### Dependency upgrade
+
+Detect user-visible output or compatibility changes caused by framework, runtime, or library upgrades.
 
 ### AI-assisted refactoring
 
 Record externally visible behavior before an AI coding agent changes a large area of the codebase; verify afterward to catch unintended drift.
-
-### Dependency upgrade
-
-Detect user-visible output or compatibility changes caused by framework/runtime/library upgrades.
 
 ## Performance and safety limits
 
@@ -228,7 +280,7 @@ This is repository self-testing, not a claim of external production adoption.
 
 ## Current scope
 
-v0.2 focuses on command behavior, structured JSON output, onboarding, bounded diffs, machine-readable verification, and cross-platform CI. HTTP checks and generated-file checks are intentionally deferred until they can be added without weakening the core execution and baseline model.
+v0.2 focuses on command behavior, structured JSON output, onboarding, bounded diffs, machine-readable verification, and cross-platform CI. HTTP checks and generated-file checks remain intentionally deferred: the repo-to-codex dogfood exercise was successfully completed using the existing command checks alone.
 
 ## Development
 
@@ -241,11 +293,11 @@ npm run build
 npm pack --dry-run
 ```
 
-CI runs on Ubuntu, macOS, and Windows with Node.js 22 and 24.
+CI runs on Ubuntu, macOS, and Windows with Node.js 22 and 24 and smoke-tests the actual packed npm artifact.
 
 ## Contributing
 
-Issues and focused pull requests are welcome. Good future contribution areas include HTTP checks, file checks, richer normalization, reporters, and documentation examples. See [CONTRIBUTING.md](CONTRIBUTING.md).
+Issues and focused pull requests are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## License
 
