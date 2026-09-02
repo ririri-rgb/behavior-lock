@@ -285,7 +285,7 @@ v0.2 focuses on command behavior, structured JSON output, onboarding, bounded di
 ## Development
 
 ```bash
-npm install
+npm ci
 npm run lint
 npm run typecheck
 npm test

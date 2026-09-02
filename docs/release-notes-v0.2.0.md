@@ -26,6 +26,12 @@ Evidence:
 - dogfooding/refactor PR: https://github.com/ririri-rgb/repo-to-codex/pull/1
 - closed regression experiment: https://github.com/ririri-rgb/repo-to-codex/pull/2
 
+## Release integrity
+
+- The repository commits `package-lock.json`, and CI/release validation installs development dependencies with `npm ci`.
+- CI builds an actual `behavior-lock@0.2.0` tarball, installs it, and smoke-tests the installed `behavior-lock --help` and `behavior-lock --version` entry points.
+- The release workflow is manual-only, checks an existing exact version tag against `package.json` and current `main`, reruns validation, smoke-tests the exact tarball, and publishes that same tarball with npm provenance enabled.
+
 ## Scope
 
 HTTP and generated-file checks are intentionally not part of v0.2.0. The current command/JSON feature set was sufficient for the repo-to-codex validation, so this release keeps the core small while those extensions remain future work.

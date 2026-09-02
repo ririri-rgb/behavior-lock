@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented here.
 
-## [0.2.0] - Unreleased
+## [0.2.0] - 2026-09-02
 
 ### Added
 
@@ -20,6 +20,8 @@ All notable changes to this project will be documented here.
 - GitHub Actions use Node-24-compatible action releases
 - package runtime floor is Node.js 22
 - CI smoke-tests the actual packed npm artifact, including its installed CLI entry point
+- the repository now commits `package-lock.json` and uses `npm ci` for reproducible CI and release dependency installation
+- a guarded manual npm release workflow validates an exact version tag and the exact packed artifact before publication
 
 ### Fixed
 
@@ -30,6 +32,7 @@ All notable changes to this project will be documented here.
 - dogfooded in `ririri-rgb/repo-to-codex` against real CLI help, error behavior, and deterministic preview output
 - a behavior-preserving CLI argument-parsing refactor passed both the repository's normal checks and Behavior Lock
 - a separate regression experiment kept the existing lint/typecheck/tests/build/package checks green while Behavior Lock detected a supported `--force` option disappearing from CLI help
+- the packed `behavior-lock@0.2.0` artifact is installed and smoke-tested in CI before release
 
 ### Deferred
 
