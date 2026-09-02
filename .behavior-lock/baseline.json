@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "checks": [
+    {
+      "type": "command",
+      "name": "behavior-lock-help",
+      "exitCode": 0,
+      "signal": null,
+      "stdout": "behavior-lock v0.2.0\n\nLock your software's behavior before AI touches the code.\n\nUsage:\n  behavior-lock init\n  behavior-lock record\n  behavior-lock record --name <name> -- <command> [args...]\n  behavior-lock record --json --name <name> -- <command> [args...]\n  behavior-lock verify [--json]\n  behavior-lock --help\n  behavior-lock --version\n\nExit codes:\n  0  behavior unchanged / record succeeded\n  1  behavioral changes detected\n  2  configuration or execution error\n",
+      "stderr": ""
+    },
+    {
+      "type": "command",
+      "name": "behavior-lock-version",
+      "exitCode": 0,
+      "signal": null,
+      "stdout": "0.2.0\n",
+      "stderr": ""
+    }
+  ]
+}

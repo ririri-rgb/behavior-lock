@@ -1,0 +1,7 @@
+{
+  "version": 1,
+  "checks": [
+    { "type": "command", "name": "behavior-lock-help", "command": "node", "args": ["dist/cli.js", "--help"] },
+    { "type": "command", "name": "behavior-lock-version", "command": "node", "args": ["dist/cli.js", "--version"] }
+  ]
+}
