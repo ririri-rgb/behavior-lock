@@ -19,14 +19,21 @@ All notable changes to this project will be documented here.
 - CI targets Node.js 22/24 across Ubuntu, macOS, and Windows
 - GitHub Actions use Node-24-compatible action releases
 - package runtime floor is Node.js 22
+- CI smoke-tests the actual packed npm artifact, including its installed CLI entry point
 
 ### Fixed
 
 - ESLint no longer sends `test/run-tests.mjs` through the TypeScript project service
 
+### Validated
+
+- dogfooded in `ririri-rgb/repo-to-codex` against real CLI help, error behavior, and deterministic preview output
+- a behavior-preserving CLI argument-parsing refactor passed both the repository's normal checks and Behavior Lock
+- a separate regression experiment kept the existing lint/typecheck/tests/build/package checks green while Behavior Lock detected a supported `--force` option disappearing from CLI help
+
 ### Deferred
 
-- HTTP and generated-file behavior checks remain planned for a later release so v0.2 can keep the command/JSON core small and reliable
+- HTTP and generated-file behavior checks remain planned for a later release; the repo-to-codex validation did not require either feature
 
 ## [0.1.0] - 2026-09-02
 
