@@ -1,0 +1,58 @@
+name: v0.2.0 smoke diagnostic
+
+on:
+  push:
+    branches: [release/v0.2-smoke-diagnostic]
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: v0.2.0
+          fetch-depth: 0
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          package-manager-cache: false
+      - name: Verify npm still unpublished
+        shell: bash
+        run: |
+          set -u
+          npm view behavior-lock@0.2.0 version && exit 20 || true
+          npm view behavior-lock name && exit 21 || true
+          echo "npm package remains unpublished"
+      - name: Reproduce exact packed smoke test verbosely
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm ci --ignore-scripts
+          npm run build
+          tarball="$(npm pack --ignore-scripts)"
+          version="$(node -p "require('./package.json').version")"
+          smoke="$RUNNER_TEMP/behavior-lock-package-smoke-diagnostic"
+          mkdir -p "$smoke"
+          cd "$smoke"
+          npm init -y >/dev/null
+          npm install "$GITHUB_WORKSPACE/$tarball" --ignore-scripts
+          echo "expected=<$version>"
+          ls -l node_modules/.bin/behavior-lock node_modules/behavior-lock/dist/cli.js
+          echo "direct-node-version=<$(node node_modules/behavior-lock/dist/cli.js --version)>"
+          set +e
+          ./node_modules/.bin/behavior-lock --help >/dev/null
+          help_status=$?
+          actual_version="$(./node_modules/.bin/behavior-lock --version)"
+          version_status=$?
+          set -e
+          printf 'help_status=%s\n' "$help_status"
+          printf 'version_status=%s\n' "$version_status"
+          printf 'actual=<%s>\n' "$actual_version"
+          printf 'actual_quoted=%q\n' "$actual_version"
+          printf '%s' "$actual_version" | od -An -tx1
+          test "$help_status" -eq 0
+          test "$version_status" -eq 0
+          test "$actual_version" = "$version"
