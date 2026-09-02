@@ -32,9 +32,15 @@ export async function main(argv = process.argv.slice(2), root = process.cwd()): 
       const lines = ['Behavior Lock', '', 'Analyzing repository...', ''];
       for (const file of result.found) lines.push(`✓ Found ${file}`);
       for (const note of result.notes) lines.push(`✓ ${note}`);
-      if (result.created) {
-        lines.push('', 'Suggested checks:', ...result.checks.map((check) => `  ${check.name}`), '', 'Created behavior-lock.json', '', 'Next:', '  behavior-lock record');
-      } else lines.push('', 'No high-confidence runnable CLI checks were generated.', 'You can capture one immediately with:', '  behavior-lock record --name cli-help -- <your-cli> --help');
+      if (result.created) lines.push('', 'Created behavior-lock.json');
+      if (result.suggestions.length > 0) {
+        lines.push('', 'Suggested captures (review before running):');
+        for (const suggestion of result.suggestions) {
+          const args = suggestion.args.map((arg) => JSON.stringify(arg)).join(' ');
+          lines.push(`  behavior-lock record --name ${suggestion.name} -- ${suggestion.command} ${args}`, `    ${suggestion.reason}`);
+        }
+      }
+      lines.push('', 'Next:', result.suggestions.length > 0 ? '  Run one suggested capture, or add your own.' : '  behavior-lock record --name cli-help -- <your-cli> --help');
       process.stdout.write(`${lines.join('\n')}\n`); return EXIT.OK;
     }
     const single = oneShot(argv);

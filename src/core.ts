@@ -17,7 +17,6 @@ export async function record(root = process.cwd()): Promise<{ path: string; coun
 }
 
 export async function recordOne(check: CheckConfig, root = process.cwd()): Promise<{ path: string }> {
-  await upsertCheck(check, root);
   const snapshot = await runCheck(check, root);
   let existing: BehaviorSnapshot[] = [];
   try { existing = (await readBaseline(root)).checks; } catch (error) {
@@ -25,6 +24,7 @@ export async function recordOne(check: CheckConfig, root = process.cwd()): Promi
   }
   const index = existing.findIndex((entry) => entry.name === check.name);
   if (index >= 0) existing[index] = snapshot; else existing.push(snapshot);
+  await upsertCheck(check, root);
   return { path: await writeBaseline(existing, root) };
 }
 

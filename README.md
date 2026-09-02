@@ -27,14 +27,21 @@ npx behavior-lock verify
 
 A changed command exits with code `1`; configuration or execution errors exit with code `2`.
 
-### Option B: initialize an existing Node CLI repository
+### Option B: initialize an existing repository
 
 ```bash
 npx behavior-lock init
-npx behavior-lock record
 ```
 
-`init` recognizes common repository metadata (`package.json`, `pyproject.toml`, `Cargo.toml`, `go.mod`, `Makefile`). In v0.2 it only generates checks when it has high confidence that a runnable Node CLI entry actually exists. It does not invent commands.
+`init` recognizes common repository metadata (`package.json`, `pyproject.toml`, `Cargo.toml`, `go.mod`, `Makefile`) and creates a safe empty `behavior-lock.json` when one does not already exist. It never overwrites an existing config.
+
+For a detected runnable Node CLI entry, `init` may print conventional `--help` / `--version` **capture suggestions**, but it does not register or execute them automatically. Review a suggestion, then run it explicitly, for example:
+
+```bash
+npx behavior-lock record --name my-cli-help -- node dist/cli.js --help
+```
+
+This avoids pretending that every CLI implements conventional flags.
 
 ## What gets locked?
 

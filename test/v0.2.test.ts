@@ -5,6 +5,7 @@ import path from 'node:path';
 import test from 'node:test';
 import { main, EXIT } from '../src/cli.js';
 import { diffBehavior, lineDiff } from '../src/diff.js';
+import { initRepository } from '../src/init.js';
 import type { JsonCommandBehavior } from '../src/types.js';
 
 test('large line diffs use bounded summary instead of quadratic matrix', () => {
@@ -30,4 +31,24 @@ test('one-command capture writes config and verifies unchanged', async () => {
   const config = await readFile(path.join(root, 'behavior-lock.json'), 'utf8');
   assert.match(config, /"hello"/);
   assert.equal(await main(['verify', '--json'], root), EXIT.OK);
+});
+
+test('init creates a safe empty config and only suggests conventional CLI flags', async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'behavior-lock-init-'));
+  await writeFile(path.join(root, 'cli.mjs'), "console.log('cli')\n");
+  await writeFile(path.join(root, 'package.json'), JSON.stringify({ name: 'demo', bin: { demo: 'cli.mjs' }, scripts: { build: 'node build.mjs', test: 'node --test' } }));
+  const result = await initRepository(root);
+  assert.equal(result.created, true);
+  assert.equal(result.suggestions.length, 2);
+  assert.deepEqual(JSON.parse(await readFile(path.join(root, 'behavior-lock.json'), 'utf8')), { version: 1, checks: [] });
+});
+
+test('init never overwrites an existing behavior-lock config', async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'behavior-lock-init-existing-'));
+  const original = '{"version":1,"checks":[{"type":"command","name":"keep","command":"node","args":["--version"]}]}\n';
+  await writeFile(path.join(root, 'behavior-lock.json'), original);
+  await writeFile(path.join(root, 'package.json'), JSON.stringify({ name: 'demo' }));
+  const result = await initRepository(root);
+  assert.equal(result.alreadyConfigured, true);
+  assert.equal(await readFile(path.join(root, 'behavior-lock.json'), 'utf8'), original);
 });
