@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "checks": [
+    {
+      "type": "command",
+      "name": "basic-cli",
+      "command": "node",
+      "args": ["app.mjs", "behavior-lock"]
+    }
+  ]
+}
