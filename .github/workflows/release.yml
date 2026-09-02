@@ -1,0 +1,128 @@
+name: Release npm package
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing release tag to publish
+        required: true
+        default: v0.2.0
+        type: string
+      confirm:
+        description: Confirm this run may publish to npm
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: npm-release
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    if: ${{ inputs.confirm }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.tag }}
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+          package-manager-cache: false
+
+      - name: Verify exact release ref
+        shell: bash
+        env:
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: |
+          set -euo pipefail
+          if [[ ! "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::Release tag must be an exact vMAJOR.MINOR.PATCH tag"
+            exit 1
+          fi
+
+          version="$(node -p "require('./package.json').version")"
+          if [[ "$RELEASE_TAG" != "v$version" ]]; then
+            echo "::error::Tag $RELEASE_TAG does not match package.json version $version"
+            exit 1
+          fi
+
+          if ! git tag --points-at HEAD | grep -Fxq "$RELEASE_TAG"; then
+            echo "::error::Checked-out commit is not tagged $RELEASE_TAG"
+            exit 1
+          fi
+
+          git fetch origin main --depth=1
+          if [[ "$(git rev-parse HEAD)" != "$(git rev-parse origin/main)" ]]; then
+            echo "::error::Release tag must point at the current main commit"
+            exit 1
+          fi
+
+      - name: Ensure npm target is safe
+        shell: bash
+        run: |
+          set -euo pipefail
+          name="$(node -p "require('./package.json').name")"
+          version="$(node -p "require('./package.json').version")"
+
+          if published="$(npm view "$name@$version" version 2>/dev/null)"; then
+            echo "::error::$name@$published is already published"
+            exit 1
+          fi
+
+          if [[ "$version" == "0.2.0" ]] && npm view "$name" name >/dev/null 2>&1; then
+            echo "::error::Initial release blocked because npm package name $name is already registered"
+            exit 1
+          fi
+
+      - run: npm ci --ignore-scripts
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+      - run: npm pack --dry-run
+
+      - name: Pack release artifact
+        id: pack
+        shell: bash
+        run: |
+          set -euo pipefail
+          tarball="$(npm pack --ignore-scripts)"
+          echo "tarball=$tarball" >> "$GITHUB_OUTPUT"
+
+      - name: Smoke-test exact packed artifact
+        shell: bash
+        env:
+          TARBALL: ${{ steps.pack.outputs.tarball }}
+        run: |
+          set -euo pipefail
+          version="$(node -p "require('./package.json').version")"
+          mkdir -p "$RUNNER_TEMP/behavior-lock-package-smoke"
+          cd "$RUNNER_TEMP/behavior-lock-package-smoke"
+          npm init -y >/dev/null
+          npm install "$GITHUB_WORKSPACE/$TARBALL" --ignore-scripts
+          ./node_modules/.bin/behavior-lock --help >/dev/null
+          actual_version="$(./node_modules/.bin/behavior-lock --version)"
+          test "$actual_version" = "$version"
+
+      - name: Self-dogfood release build
+        run: node dist/cli.js verify
+
+      # Initial v0.2.0 publication requires an npm automation/granular token because
+      # the package does not yet exist and therefore cannot have a trusted publisher
+      # configured in advance. After the first publish, configure npm trusted
+      # publishing for this workflow and remove the NPM_TOKEN secret.
+      - name: Publish exact tested tarball to npm
+        shell: bash
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          TARBALL: ${{ steps.pack.outputs.tarball }}
+        run: npm publish "./$TARBALL" --access public --provenance
