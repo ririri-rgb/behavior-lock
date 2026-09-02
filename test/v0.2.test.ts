@@ -28,6 +28,6 @@ test('one-command capture writes config and verifies unchanged', async () => {
   await writeFile(app, "console.log('hello')\n");
   assert.equal(await main(['record', '--name', 'hello', '--', process.execPath, 'app.mjs'], root), EXIT.OK);
   const config = await readFile(path.join(root, 'behavior-lock.json'), 'utf8');
-  assert.match(config, /\"hello\"/);
+  assert.match(config, /"hello"/);
   assert.equal(await main(['verify', '--json'], root), EXIT.OK);
 });
