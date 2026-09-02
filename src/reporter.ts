@@ -9,7 +9,10 @@ export function reportDiffs(diffs: CheckDiff[], unchanged: number): string {
     for (const diff of diffs) {
       lines.push(`✗ ${diff.name}`);
       for (const change of diff.changes) {
-        if (change.field === 'stdout' || change.field === 'stderr') lines.push('', `${change.field} changed:`, '', change.diff ?? '');
+        if (change.field === 'stdout' || change.field === 'stderr') {
+          if (change.diff !== undefined) lines.push('', `${change.field} changed:`, '', change.diff);
+          else lines.push(`  ${String(change.before)} → ${String(change.after)}`);
+        }
         else lines.push(`  ${change.field}: ${String(change.before)} → ${String(change.after)}`);
       }
       lines.push('');

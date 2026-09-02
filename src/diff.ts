@@ -15,7 +15,7 @@ function lineDiff(before: string, after: string): string {
   let i = 0, j = 0;
   while (i < a.length || j < b.length) {
     if (i < a.length && j < b.length && a[i] === b[j]) { i++; j++; continue; }
-    if (j < b.length && (i === a.length || dp[i]![j + 1]! >= dp[i + 1]![j]!)) { out.push(`+ ${b[j]}`); j++; }
+    if (j < b.length && (i === a.length || dp[i]![j + 1]! > dp[i + 1]![j]!)) { out.push(`+ ${b[j]}`); j++; }
     else if (i < a.length) { out.push(`- ${a[i]}`); i++; }
   }
   return out.join('\n');
