@@ -1,0 +1,63 @@
+name: v0.2.0 publish operator
+
+on:
+  push:
+    branches: [release/v0.2-publish-operator]
+
+permissions:
+  contents: write
+  actions: write
+
+jobs:
+  dispatch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: cc2573fbf0584c05f540e31a2830497e34e49563
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          package-manager-cache: false
+
+      - name: Final immutable release checks
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected="cc2573fbf0584c05f540e31a2830497e34e49563"
+          remote_main="$(git ls-remote origin refs/heads/main | cut -f1)"
+          test "$remote_main" = "$expected"
+          test "$(node -p "require('./package.json').version")" = "0.2.0"
+          test -f package-lock.json
+
+          if git ls-remote --exit-code --tags origin refs/tags/v0.2.0 >/dev/null 2>&1; then
+            echo "::error::v0.2.0 tag already exists"
+            exit 1
+          fi
+
+          if npm view behavior-lock name >/dev/null 2>&1; then
+            echo "::error::npm package behavior-lock is already registered; refusing initial publish"
+            exit 1
+          fi
+
+          if npm view behavior-lock@0.2.0 version >/dev/null 2>&1; then
+            echo "::error::behavior-lock@0.2.0 already exists; refusing duplicate publish"
+            exit 1
+          fi
+
+      - name: Create exact v0.2.0 tag
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a v0.2.0 cc2573fbf0584c05f540e31a2830497e34e49563 -m "behavior-lock v0.2.0"
+          git push origin refs/tags/v0.2.0
+
+      - name: Dispatch prepared npm release workflow
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run release.yml --ref main -f tag=v0.2.0 -f confirm=true
