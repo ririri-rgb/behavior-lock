@@ -1,0 +1,36 @@
+name: Lockfile bootstrap
+
+on:
+  push:
+    branches: [release/v0.2-hygiene]
+
+permissions:
+  contents: write
+
+jobs:
+  lockfile:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: release/v0.2-hygiene
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          package-manager-cache: false
+      - name: Generate package-lock.json
+        run: npm install --package-lock-only --ignore-scripts
+      - name: Verify lockfile with npm ci
+        run: npm ci --ignore-scripts
+      - name: Commit generated lockfile
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add package-lock.json
+          if git diff --cached --quiet; then
+            echo "package-lock.json already up to date"
+            exit 0
+          fi
+          git commit -m "chore: add npm lockfile"
+          git push origin HEAD:release/v0.2-hygiene
