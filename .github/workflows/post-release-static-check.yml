@@ -1,0 +1,39 @@
+name: Post-release cleanup validation
+
+on:
+  push:
+    branches: [chore/post-release-cleanup]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Verify immutable release version
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(node -p "require('./package.json').version")" = "0.2.0"
+
+      - name: Verify Trusted Publishing workflow configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -Fq 'id-token: write' .github/workflows/release.yml
+          grep -Fq 'node-version: 24' .github/workflows/release.yml
+          grep -Fq 'npm publish "./$TARBALL" --access public --provenance' .github/workflows/release.yml
+          ! grep -Fq 'NPM_TOKEN' .github/workflows/release.yml
+          ! grep -Fq 'NODE_AUTH_TOKEN' .github/workflows/release.yml
+
+      - name: Verify restored v0.1.0 changelog
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -Fq -- '- `behavior-lock record` and `behavior-lock verify`' CHANGELOG.md
+          grep -Fq -- '- stable CLI exit codes for unchanged, changed, and execution/configuration errors' CHANGELOG.md
