@@ -1,4 +1,4 @@
-name: v0.2.0 auth diagnostic
+name: v0.2.0 published package verification
 
 on:
   push:
@@ -8,35 +8,29 @@ permissions:
   contents: read
 
 jobs:
-  diagnose:
+  verify:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/setup-node@v7
         with:
           node-version: 24
+          registry-url: https://registry.npmjs.org
           package-manager-cache: false
-      - name: Confirm npm package remains unpublished
+      - name: Verify public registry metadata
         shell: bash
         run: |
           set -euo pipefail
-          if version="$(npm view behavior-lock@0.2.0 version 2>/dev/null)"; then
-            echo "::error::behavior-lock@$version is already published"
-            exit 20
-          fi
-          if name="$(npm view behavior-lock name 2>/dev/null)"; then
-            echo "::error::npm package name is already registered as $name"
-            exit 21
-          fi
-          echo "REGISTRY_STATE=UNPUBLISHED"
-      - name: Check NPM_TOKEN availability without exposing value
+          test "$(npm view behavior-lock@0.2.0 version)" = "0.2.0"
+          test "$(npm view behavior-lock@0.2.0 name)" = "behavior-lock"
+          npm view behavior-lock@0.2.0 dist.integrity repository.url
+      - name: Clean install and CLI smoke
         shell: bash
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
-          if [ -z "${NODE_AUTH_TOKEN:-}" ]; then
-            echo "TOKEN_AVAILABLE=false"
-            exit 22
-          fi
-          echo "TOKEN_AVAILABLE=true"
-
-# post-publish-denial verification
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/published-package-smoke"
+          cd "$RUNNER_TEMP/published-package-smoke"
+          npm init -y >/dev/null
+          npm install --save-dev behavior-lock@0.2.0 --ignore-scripts
+          test "$(npx --no-install behavior-lock --version)" = "0.2.0"
+          npx --no-install behavior-lock --help >/dev/null
+          npm audit signatures
