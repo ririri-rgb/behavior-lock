@@ -1,0 +1,38 @@
+name: v0.2.0 GitHub Release operator
+
+on:
+  push:
+    branches: [release/v0.2-github-release]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: v0.2.0
+          fetch-depth: 0
+      - name: Verify release identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "40822e46a16021b1f65aa15b41932f198382079c"
+          test "$(node -p "require('./package.json').version")" = "0.2.0"
+          test "$(npm view behavior-lock@0.2.0 version)" = "0.2.0"
+          if gh release view v0.2.0 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "::error::GitHub Release v0.2.0 already exists"
+            exit 1
+          fi
+      - name: Create GitHub Release v0.2.0
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create v0.2.0 \
+            --repo "$GITHUB_REPOSITORY" \
+            --verify-tag \
+            --title "v0.2.0" \
+            --notes-file docs/release-notes-v0.2.0.md
