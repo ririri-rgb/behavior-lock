@@ -30,6 +30,7 @@ Evidence:
 
 - The repository commits `package-lock.json`, and CI/release validation installs development dependencies with `npm ci`.
 - CI builds an actual `behavior-lock@0.2.0` tarball, installs it, and smoke-tests the installed `behavior-lock --help` and `behavior-lock --version` entry points.
+- The npm bin entry point resolves package-manager symlinks correctly, so local installs and `npx behavior-lock` execute the packaged CLI.
 - The release workflow is manual-only, checks an existing exact version tag against `package.json` and current `main`, reruns validation, smoke-tests the exact tarball, and publishes that same tarball with npm provenance enabled.
 
 ## Scope
