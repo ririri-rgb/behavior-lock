@@ -1,0 +1,42 @@
+name: Final npm registry check
+
+on:
+  push:
+    branches: [release/v0.2-hygiene]
+
+permissions:
+  contents: read
+
+jobs:
+  registry:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          package-manager-cache: false
+      - name: Check package name and exact version
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "Checking behavior-lock@0.2.0"
+          if version="$(npm view behavior-lock@0.2.0 version 2>/tmp/exact.err)"; then
+            echo "EXACT_EXISTS=$version"
+            exit 10
+          else
+            status=$?
+            echo "EXACT_MISSING_STATUS=$status"
+            cat /tmp/exact.err
+          fi
+
+          echo "Checking behavior-lock package name"
+          if name="$(npm view behavior-lock name 2>/tmp/name.err)"; then
+            echo "NAME_EXISTS=$name"
+            exit 11
+          else
+            status=$?
+            echo "NAME_MISSING_STATUS=$status"
+            cat /tmp/name.err
+          fi
+
+          echo "REGISTRY_CHECK=SAFE_TO_CLAIM_INITIAL_NAME"
