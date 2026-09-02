@@ -1,0 +1,59 @@
+name: v0.2.0 retag and redispatch
+
+on:
+  push:
+    branches: [release/v0.2-retag-dispatch]
+
+permissions:
+  contents: write
+  actions: write
+
+jobs:
+  retag:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: 40822e46a16021b1f65aa15b41932f198382079c
+          fetch-depth: 0
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          package-manager-cache: false
+      - name: Verify safe recovery state
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          expected="40822e46a16021b1f65aa15b41932f198382079c"
+          old="cc2573fbf0584c05f540e31a2830497e34e49563"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$expected"
+          test "$(node -p "require('./package.json').version")" = "0.2.0"
+          test "$(git rev-list -n1 v0.2.0)" = "$old"
+
+          if npm view behavior-lock name >/dev/null 2>&1; then
+            echo "::error::npm package behavior-lock is already registered; refusing to move tag"
+            exit 1
+          fi
+          if npm view behavior-lock@0.2.0 version >/dev/null 2>&1; then
+            echo "::error::behavior-lock@0.2.0 is already published; refusing to move tag"
+            exit 1
+          fi
+          if gh api repos/${GITHUB_REPOSITORY}/releases/tags/v0.2.0 >/dev/null 2>&1; then
+            echo "::error::GitHub Release v0.2.0 already exists; refusing to move tag"
+            exit 1
+          fi
+      - name: Move v0.2.0 tag to fixed release commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -f -a v0.2.0 40822e46a16021b1f65aa15b41932f198382079c -m "behavior-lock v0.2.0"
+          git push --force origin refs/tags/v0.2.0
+      - name: Dispatch prepared npm release workflow
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run release.yml --ref main -f tag=v0.2.0 -f confirm=true
