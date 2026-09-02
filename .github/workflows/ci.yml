@@ -28,6 +28,12 @@ jobs:
       - run: npm test
       - run: npm run build
       - run: npm pack --dry-run
+      - name: Packed package smoke test
+        run: |
+          npm pack --ignore-scripts
+          npm install --global ./behavior-lock-0.2.0.tgz --ignore-scripts
+          behavior-lock --help
+          behavior-lock --version
       - name: CLI smoke test
         run: |
           node dist/cli.js --help
