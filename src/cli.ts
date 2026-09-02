@@ -1,6 +1,7 @@
 #!/usr/bin/env node
+import { realpathSync } from 'node:fs';
 import { relative } from 'node:path';
-import { pathToFileURL } from 'node:url';
+import { fileURLToPath } from 'node:url';
 import { initRepository } from './init.js';
 import { record, recordOne, verify } from './core.js';
 import { reportDiffs } from './reporter.js';
@@ -64,4 +65,14 @@ export async function main(argv = process.argv.slice(2), root = process.cwd()): 
   }
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) process.exitCode = await main();
+function isDirectExecution(): boolean {
+  const entry = process.argv[1];
+  if (!entry) return false;
+  try {
+    return realpathSync(entry) === realpathSync(fileURLToPath(import.meta.url));
+  } catch {
+    return false;
+  }
+}
+
+if (isDirectExecution()) process.exitCode = await main();
